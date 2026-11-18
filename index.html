@@ -327,7 +327,23 @@ function restore(f){const r=new FileReader();r.onload=()=>{try{const j=JSON.pars
 let dp=null;const inst=matchMedia('(display-mode: standalone)').matches||navigator.standalone;if(inst)$('#ins').style.display='none';
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e});addEventListener('appinstalled',()=>{$('#ins').style.display='none';toast('SiAndal berhasil terpasang')});
 $('#insn').onclick=()=>$('#inb').click();if(inst)$('#insn').style.display='none';$('#inb').onclick=async()=>{if(dp){dp.prompt();await dp.userChoice;dp=null}else $('#mod').style.display='grid'};$('#mc').onclick=()=>$('#mod').style.display='none';
-try{if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&location.hostname!=='claude.ai')navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+try {
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // Paksa cek pembaruan sw.js setiap kali halaman dibuka
+      reg.update();
+    }).catch(() => {});
+
+    // Otomatis muat ulang halaman jika Service Worker baru mengambil alih
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
+  }
+} catch (e) {}
 boot();
 </script>
 
