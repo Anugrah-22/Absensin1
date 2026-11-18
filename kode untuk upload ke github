@@ -1,0 +1,5 @@
+cd ~/Absensin1
+cp -r /sdcard/Download/Absensi/. .
+git add -A
+git commit -m "Update aplikasi SiAndal"
+git push origin main

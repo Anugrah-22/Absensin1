@@ -329,9 +329,6 @@ addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e});addEventLis
 $('#insn').onclick=()=>$('#inb').click();if(inst)$('#insn').style.display='none';$('#inb').onclick=async()=>{if(dp){dp.prompt();await dp.userChoice;dp=null}else $('#mod').style.display='grid'};$('#mc').onclick=()=>$('#mod').style.display='none';
 try{if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&location.hostname!=='claude.ai')navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
 boot();
-
-serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
-boot();
 </script>
 
 <!-- Integrasi Firebase Cloud Firestore -->
