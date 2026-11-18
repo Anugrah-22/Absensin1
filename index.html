@@ -110,7 +110,17 @@ const ls={get:k=>{try{return localStorage.getItem(k)}catch(e){return mem[k]||nul
 const DEFAULT_NOTICE={show:true,title:'Informasi SiAndal',body:'Selamat datang di portal absensi SMA-IT Andalan. Silakan masuk menggunakan akun yang telah diberikan admin.'};
 function readNotice(){try{return{...DEFAULT_NOTICE,...JSON.parse(ls.get('siandal_login_notice')||'{}')}}catch(e){return{...DEFAULT_NOTICE}}}
 function renderNotice(){const box=$('#loginNotice');if(!box)return;const n=readNotice();box.hidden=!n.show||(!n.title&&!n.body);box.innerHTML=`<div class="notice-kicker">📢 Informasi sekolah</div>${n.title?`<h3>${esc(n.title)}</h3>`:''}${n.body?`<p>${esc(n.body)}</p>`:''}`}
-async function publishNotice(n){ls.set('siandal_login_notice',JSON.stringify(n));renderNotice();if(db&&navigator.onLine){try{await db.doc('meta/loginNotice').set({...n,ts:Date.now()})}catch(e){toast('Tersimpan di perangkat ini; sinkronisasi pengumuman gagal')}}}
+async function publishNotice(n) {
+  ls.set('siandal_login_notice', JSON.stringify(n));
+  renderNotice();
+  if (db && navigator.onLine) {
+    try {
+      await db.setDoc('meta', 'loginNotice', { ...n, ts: Date.now() });
+    } catch (e) {
+      toast('Tersimpan di perangkat ini; sinkronisasi pengumuman gagal');
+    }
+  }
+}
 
 const save=()=>ls.set('absenku',JSON.stringify(S));
 function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -125,13 +135,154 @@ const dates=()=>{const p=past(30);return S.classes.some(c=>S.att[TODAY+'_'+c])?[
 function stat(cls,ds){const o={H:0,S:0,I:0,A:0},ids=new Set(S.students.filter(s=>cls.includes(s.c)).map(s=>s.id));ds.forEach(d=>cls.forEach(c=>{const a=S.att[d+'_'+c];if(a)for(const k in a.recs)if(ids.has(k))o[a.recs[k]]++}));o.T=o.H+o.S+o.I+o.A;o.p=o.T?o.H/o.T*100:0;return o}
 function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(toastT);toastT=setTimeout(()=>t.style.opacity=0,2200)}
 function cnt(el,to,suf='',dec=0){const t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/1000),e=1-Math.pow(1-k,3);el.textContent=(to*e).toFixed(dec)+suf;if(k<1)requestAnimationFrame(f)})(t0)}
-/* ===== Sinkronisasi ===== */
-function netUI(){const n=$('#net'),on=navigator.onLine;n.className='pill'+(on?'':' off');n.lastChild.textContent=(on?'Online':'Offline')+(db&&on?' • terhubung DB':'')+(S&&S.outbox.length+(S.uout||[]).length?' • '+(S.outbox.length+(S.uout||[]).length)+' antrean':' • tersinkron')}
-async function pushU(){if(!db||!navigator.onLine||!(S.uout||[]).length)return;for(const u of [...S.uout]){const a=S.users.find(x=>x.u===u);try{await db.collection('users').doc(u).set(a?{...a,ts:a.ts||Date.now()}:{u,del:1,ts:Date.now()});S.uout=S.uout.filter(x=>x!==u)}catch(e){break}}save()}
-async function pushM(){if(!S.mq||!db||!navigator.onLine)return;try{await db.doc('meta/school').set({classes:S.classes,students:S.students,ts:S.cts});S.mq=0;save()}catch(e){}}
-async function push(){netUI();await pushU();await pushM();if(!db||!navigator.onLine||!S.outbox.length)return false;let n=0;for(const k of [...S.outbox]){const a=S.att[k];if(!a){S.outbox=S.outbox.filter(x=>x!==k);continue}try{await db.collection('att').doc(k).set({k,recs:a.recs,ts:a.ts});S.outbox=S.outbox.filter(x=>x!==k);n++}catch(e){break}}save();netUI();if(n)toast('✅ '+n+' data tersinkron ke database');return n>0}
-async function initDb(){try{if(!window.claude||!claude.use)return;db=await claude.use('db');if(!db)return;db.collection('att').onSnapshot(sn=>{let ch=0;sn.docs.forEach(d=>{const x=d.data();if(!x||!x.k||!S.classes.includes(x.k.slice(x.k.lastIndexOf('_')+1)))return;const l=S.att[x.k];if(!l||x.ts>l.ts){S.att[x.k]={recs:x.recs,ts:x.ts};S.outbox=S.outbox.filter(o=>o!==x.k);ch++}});if(ch){save();if(page==='dash'||page==='lap')render()}netUI()},()=>{});db.doc('meta/school').onSnapshot(sn=>{const x=sn.exists&&sn.data();if(x&&x.ts>(S.cts||0)&&!S.mq){S.classes=x.classes;S.students=x.students;S.cts=x.ts;save();if(['siswa','kelas','dash','lap'].includes(page))render()}},()=>{});db.doc('meta/loginNotice').onSnapshot(sn=>{const x=sn.exists&&sn.data();if(x&&x.ts>(Number(ls.get('siandal_login_notice_ts'))||0)){ls.set('siandal_login_notice',JSON.stringify({show:x.show!==false,title:x.title||'',body:x.body||''}));ls.set('siandal_login_notice_ts',String(x.ts));renderNotice()}},()=>{});db.collection('users').onSnapshot(sn=>{let ch=0;sn.docs.forEach(d=>{const x=d.data();if(!x||!x.u)return;const l=S.users.find(y=>y.u===x.u);if(l&&(l.ts||0)>=x.ts||S.uout.includes(x.u))return;S.users=S.users.filter(y=>y.u!==x.u);if(!x.del)S.users.push(x);ch++});if(ch){save();if(page==='user')render()}},()=>{});netUI();push()}catch(e){}}
-addEventListener('online',()=>{toast('🌐 Online — menyinkronkan…');initDb().then(push);netUI()});addEventListener('offline',()=>{toast('📴 Offline — data disimpan lokal');netUI()});
+/* ===== Sinkronisasi Firebase Firestore ===== */
+function netUI() {
+  const n = $('#net'), on = navigator.onLine;
+  n.className = 'pill' + (on ? '' : ' off');
+  const qLen = (S && S.outbox ? S.outbox.length : 0) + (S && S.uout ? S.uout.length : 0) + (S && S.mq ? 1 : 0);
+  n.lastChild.textContent = (on ? 'Online' : 'Offline') +
+    (db && on ? ' • terhubung DB' : '') +
+    (qLen ? ' • ' + qLen + ' antrean' : ' • tersinkron');
+}
+
+async function pushU() {
+  if (!db || !navigator.onLine || !(S.uout || []).length) return;
+  for (const u of [...S.uout]) {
+    const a = S.users.find(x => x.u === u);
+    try {
+      await db.setDoc('users', u, a ? { ...a, ts: a.ts || Date.now() } : { u, del: 1, ts: Date.now() });
+      S.uout = S.uout.filter(x => x !== u);
+    } catch (e) {
+      console.error('Gagal sync user:', e);
+      break;
+    }
+  }
+  save();
+}
+
+async function pushM() {
+  if (!S.mq || !db || !navigator.onLine) return;
+  try {
+    await db.setDoc('meta', 'school', { classes: S.classes, students: S.students, ts: S.cts });
+    S.mq = 0;
+    save();
+  } catch (e) {
+    console.error('Gagal sync meta/school:', e);
+  }
+}
+
+async function push() {
+  netUI();
+  await pushU();
+  await pushM();
+  if (!db || !navigator.onLine || !S.outbox.length) return false;
+  let n = 0;
+  for (const k of [...S.outbox]) {
+    const a = S.att[k];
+    if (!a) {
+      S.outbox = S.outbox.filter(x => x !== k);
+      continue;
+    }
+    try {
+      await db.setDoc('att', k, { k, recs: a.recs, ts: a.ts });
+      S.outbox = S.outbox.filter(x => x !== k);
+      n++;
+    } catch (e) {
+      console.error('Gagal sync absensi:', e);
+      break;
+    }
+  }
+  save();
+  netUI();
+  if (n) toast('✅ ' + n + ' data tersinkron ke database');
+  return n > 0;
+}
+
+let _unsubs = [];
+async function initDb() {
+  try {
+    if (!window._fbBridge) {
+      await new Promise(r => {
+        const t = setInterval(() => {
+          if (window._fbBridge) { clearInterval(t); r(); }
+        }, 100);
+        setTimeout(() => { clearInterval(t); r(); }, 5000);
+      });
+    }
+    if (!window._fbBridge) return;
+    db = window._fbBridge;
+
+    _unsubs.forEach(fn => { try { fn(); } catch (e) {} });
+    _unsubs = [];
+
+    _unsubs.push(db.onCol('att', docs => {
+      let ch = 0;
+      docs.forEach(x => {
+        if (!x || !x.k || !S.classes.includes(x.k.slice(x.k.lastIndexOf('_') + 1))) return;
+        const l = S.att[x.k];
+        if (!l || x.ts > l.ts) {
+          S.att[x.k] = { recs: x.recs, ts: x.ts };
+          S.outbox = S.outbox.filter(o => o !== x.k);
+          ch++;
+        }
+      });
+      if (ch) {
+        save();
+        if (page === 'dash' || page === 'lap') render();
+      }
+      netUI();
+    }));
+
+    _unsubs.push(db.onDoc('meta', 'school', x => {
+      if (x && x.ts > (S.cts || 0) && !S.mq) {
+        S.classes = x.classes;
+        S.students = x.students;
+        S.cts = x.ts;
+        save();
+        if (['siswa', 'kelas', 'dash', 'lap'].includes(page)) render();
+      }
+    }));
+
+    _unsubs.push(db.onDoc('meta', 'loginNotice', x => {
+      if (x && x.ts > (Number(ls.get('siandal_login_notice_ts')) || 0)) {
+        ls.set('siandal_login_notice', JSON.stringify({ show: x.show !== false, title: x.title || '', body: x.body || '' }));
+        ls.set('siandal_login_notice_ts', String(x.ts));
+        renderNotice();
+      }
+    }));
+
+    _unsubs.push(db.onCol('users', docs => {
+      let ch = 0;
+      docs.forEach(x => {
+        if (!x || !x.u) return;
+        const l = S.users.find(y => y.u === x.u);
+        if ((l && (l.ts || 0) >= x.ts) || (S.uout || []).includes(x.u)) return;
+        S.users = S.users.filter(y => y.u !== x.u);
+        if (!x.del) S.users.push(x);
+        ch++;
+      });
+      if (ch) {
+        save();
+        if (page === 'user') render();
+      }
+    }));
+
+    netUI();
+    await push();
+  } catch (e) {
+    console.error('Init Firebase gagal:', e);
+  }
+}
+
+addEventListener('online', () => {
+  toast('🌐 Online — menyinkronkan…');
+  initDb().then(push);
+  netUI();
+});
+addEventListener('offline', () => {
+  toast('📴 Offline — data disimpan lokal');
+  netUI();
+});
 /* ===== Auth ===== */
 function boot(){renderNotice();S=JSON.parse(ls.get('absenku')||'null');if(!S)seed();if(!S.classes){S.classes=[...CL];S.cts=0;S.mq=0;save()}if(!S.users){S.users=defUsers();S.uout=[];save()}const a=S.users.find(x=>x.u===ls.get('absenku_user')&&x.on);user=a?{...a,id:a.u}:GUEST;start()}
 $('#go').onclick=()=>{const u=$('#u').value.trim().toLowerCase(),a=S.users.find(x=>x.u===u);if(a&&a.on&&a.h===sha(a.s+$('#p').value)){user={...a,id:u};ls.set('absenku_user',u);start()}else $('#err').textContent=a&&!a.on?'Akun dinonaktifkan. Hubungi admin.':'Username atau password salah.'};
@@ -355,13 +506,9 @@ boot();
     persistentLocalCache, 
     persistentMultipleTabManager,
     collection, 
-    addDoc, 
-    onSnapshot,
-    query,
-    orderBy,
     doc,
-    deleteDoc,
-    serverTimestamp
+    setDoc,
+    onSnapshot
   } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -375,18 +522,20 @@ boot();
   };
 
   const app = initializeApp(firebaseConfig);
-  const db = initializeFirestore(app, {
+  const firestore = initializeFirestore(app, {
     localCache: persistentLocalCache({
       tabManager: persistentMultipleTabManager()
     })
   });
 
-  window.simpanAbsensi = function(dataObjek) {
-    addDoc(collection(db, "data_absensi"), {
-      ...dataObjek,
-      waktu_lokal: new Date().toISOString(),
-      waktu_server: serverTimestamp()
-    });
+  window._fbBridge = {
+    setDoc: (colName, docId, data) => setDoc(doc(firestore, colName, docId), data, { merge: true }),
+    onCol: (colName, cb) => onSnapshot(collection(firestore, colName), snap => {
+      cb(snap.docs.map(d => d.data()));
+    }, err => console.error(`Firestore onCol(${colName}) error:`, err)),
+    onDoc: (colName, docId, cb) => onSnapshot(doc(firestore, colName, docId), snap => {
+      cb(snap.exists() ? snap.data() : null);
+    }, err => console.error(`Firestore onDoc(${colName}/${docId}) error:`, err))
   };
 </script>
 </body>
