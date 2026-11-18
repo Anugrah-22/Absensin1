@@ -330,7 +330,11 @@ $('#insn').onclick=()=>$('#inb').click();if(inst)$('#insn').style.display='none'
 try{if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)&&location.hostname!=='claude.ai')navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
 boot();
 
-<!-- Integrasi Firebase Cloud Firestore (Proyek: absensi-9bcdf) -->
+serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
+boot();
+</script>
+
+<!-- Integrasi Firebase Cloud Firestore -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
   import { 
@@ -343,7 +347,6 @@ boot();
     query,
     orderBy,
     doc,
-    updateDoc,
     deleteDoc,
     serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
@@ -358,7 +361,6 @@ boot();
     measurementId: "G-CFRQVNH17S"
   };
 
-  // Inisialisasi Firebase & Penyimpanan Offline Otomatis
   const app = initializeApp(firebaseConfig);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
@@ -366,48 +368,13 @@ boot();
     })
   });
 
-  const KOLEKSI_ABSENSI = "data_absensi";
-
-  // 1. FUNGSI SIMPAN ABSENSI (Bisa dipakai saat Offline & Online)
   window.simpanAbsensi = function(dataObjek) {
-    addDoc(collection(db, KOLEKSI_ABSENSI), {
+    addDoc(collection(db, "data_absensi"), {
       ...dataObjek,
       waktu_lokal: new Date().toISOString(),
       waktu_server: serverTimestamp()
-    })
-    .then(() => {
-      console.log("Data absensi berhasil terkirim ke server!");
-    })
-    .catch((err) => {
-      console.error("Gagal menyimpan ke Firestore:", err);
     });
   };
-
-  // 2. FUNGSI HAPUS DATA
-  window.hapusAbsensi = function(idDokumen) {
-    deleteDoc(doc(db, KOLEKSI_ABSENSI, idDokumen));
-  };
-
-  // 3. PANTAU DATA ABSENSI SECARA REAL-TIME
-  const q = query(collection(db, KOLEKSI_ABSENSI), orderBy("waktu_lokal", "desc"));
-  onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-    const semuaData = [];
-    snapshot.forEach((dokumen) => {
-      semuaData.push({
-        id: dokumen.id,
-        ...dokumen.data(),
-        statusSinkron: dokumen.metadata.hasPendingWrites ? "Lokal (Menunggu Sinyal)" : "Tersinkron"
-      });
-    });
-
-    console.log("Update Data Absensi:", semuaData);
-
-    // Jika di kode lama Anda ada fungsi untuk merender/memperbarui tampilan tabel,
-    // Anda bisa memanggilnya di sini menggunakan variabel 'semuaData'
-    if (typeof window.onDataFirebaseUpdate === "function") {
-      window.onDataFirebaseUpdate(semuaData);
-    }
-  });
 </script>
 </body>
 </html>
