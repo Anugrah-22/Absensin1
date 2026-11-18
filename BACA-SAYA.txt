@@ -1,0 +1,5 @@
+PAKET INSTAL SiAndal (PWA)
+1. Unggah isi folder ini ke hosting HTTPS sekolah (Netlify, Vercel, GitHub Pages, cPanel, dll).
+2. Buka alamatnya di Chrome/Edge (laptop) atau Chrome (Android) -> tombol "Instal Aplikasi SiAndal" di halaman login akan aktif.
+3. iPhone: Safari -> Bagikan -> Tambah ke Layar Utama.
+Catatan: Service worker hanya berjalan di HTTPS (atau localhost), sehingga halaman tetap bisa dibuka tanpa internet setelah kunjungan pertama.
