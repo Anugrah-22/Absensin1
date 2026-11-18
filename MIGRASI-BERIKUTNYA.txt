@@ -1,0 +1,35 @@
+# SiAndal – Firebase project switch (staged)
+
+Target Firebase project:
+- Display name: absensi
+- Project ID: absensi-497e0
+- Auth domain: absensi-497e0.firebaseapp.com
+- Firestore region confirmed by user: asia-southeast2 (Jakarta)
+
+## What this package changes
+- Keeps the existing SiAndal dashboard/source structure.
+- Changes the Firebase Web App configuration in `index.html` from the old project to `absensi-497e0`.
+- Preserves the existing localStorage data and existing UI.
+
+## What is NOT yet complete
+This is NOT a finished multi-device/auth migration. The existing frontend still:
+- authenticates users locally using `S.users` and a SHA-based password check;
+- writes Firestore collections through the legacy bridge;
+- has no verified first-admin bootstrap;
+- does not yet call secure account-management Cloud Functions;
+- has no safe data migration wizard or two-device verification.
+
+Do not publish this package as the production migration yet, and do not replace Firestore Rules with public read/write rules.
+
+## Required next implementation
+1. Add Firebase Auth SDK (`getAuth`, `signInWithEmailAndPassword`, `signOut`, `onAuthStateChanged`) to the module bridge.
+2. Convert username to an internal email alias consistently; do not use a made-up email address for password-reset delivery.
+3. Implement a one-time trusted bootstrap for the first admin (Admin SDK / secure operator action); never put service-account credentials in browser files.
+4. Move user create/update/disable/delete to callable Cloud Functions using Firebase Admin SDK. Preserve username, display name, role and class assignments; require new passwords because old passwords are not recoverable from the old salted hash.
+5. Implement Firestore document schema and strict role/class-based Rules only after frontend auth and claims are integrated.
+6. Add an explicit admin-only migration preview for local students/classes/attendance. Show counts and conflicts, take a backup, require confirmation, then migrate. Never auto-upload demo seed data.
+7. Rework realtime listeners so initial server snapshot is authoritative and local pending writes cannot overwrite newer server state.
+8. Test sign-in, account permissions, CRUD, offline queue, and two-device consistency before production rollout.
+
+## Important
+The Firebase `apiKey` in a web app config is a client identifier, not a service-account secret. Security depends on Authentication, Firestore Rules, App Check where appropriate, and trusted server-side operations.
